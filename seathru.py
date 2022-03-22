@@ -18,10 +18,8 @@ from skimage.morphology import closing, opening, erosion, dilation, disk, diamon
 matplotlib.use('TkAgg')
 
 '''
-Finds points for which to estimate backscatter
-by partitioning the image into different depth
-ranges and taking the darkest RGB triplets 
-from that set as estimations of the backscatter
+Finds points for which to estimate backscatter by partitioning the image into different depth ranges and taking the darkest RGB triplets from that set as
+estimations of the backscatter
 '''
 def find_backscatter_estimation_points(img, depths, num_bins=10, fraction=0.01, max_vals=20, min_depth_percent=0.0):
     z_max, z_min = np.max(depths), np.min(depths)
@@ -43,8 +41,7 @@ def find_backscatter_estimation_points(img, depths, num_bins=10, fraction=0.01, 
     return np.array(points_r), np.array(points_g), np.array(points_b)
 
 '''
-Estimates coefficients for the backscatter curve
-based on the backscatter point values and their depths
+Estimates coefficients for the backscatter curve based on the backscatter point values and their depths
 '''
 def find_backscatter_values(B_pts, depths, restarts=10, max_mean_loss_fraction=0.1):
     B_vals, B_depths = B_pts[:, 1], B_pts[:, 0]
@@ -108,7 +105,7 @@ def estimate_illumination(img, B, neighborhood_map, num_neighborhoods, p=0.5, f=
 '''
 Estimate values for beta_D
 '''
-def estimate_wideband_attentuation(depths, illum, radius = 6, max_val = 10.0):
+def estimate_wideband_attenuation(depths, illum, radius = 6, max_val = 10.0):
     eps = 1E-8
     BD = np.minimum(max_val, -np.log(illum + eps) / (np.maximum(0, depths) + eps))
     mask = np.where(np.logical_and(depths > eps, illum > eps), 1, 0)
@@ -149,10 +146,9 @@ def filter_data(X, Y, radius_fraction=0.01):
     return np.array(dX), np.array(dY)
 
 '''
-Estimate coefficients for the 2-term exponential
-describing the wideband attenuation
+Estimate coefficients for the 2-term exponential describing the wideband attenuation
 '''
-def refine_wideband_attentuation(depths, illum, estimation, restarts=10, min_depth_fraction = 0.1, max_mean_loss_fraction=np.inf, l=1.0, radius_fraction=0.01):
+def refine_wideband_attenuation(depths, illum, estimation, restarts=10, min_depth_fraction = 0.1, max_mean_loss_fraction=np.inf, l=1.0, radius_fraction=0.01):
     eps = 1E-8
     z_max, z_min = np.max(depths), np.min(depths)
     min_depth = z_min + (min_depth_fraction * (z_max - z_min))
@@ -196,8 +192,7 @@ def refine_wideband_attentuation(depths, illum, estimation, restarts=10, min_dep
     return BD, coefs
 
 '''
-Reconstruct the scene and globally white balance
-based the Gray World Hypothesis
+Reconstruct the scene and globally white balance based on the Gray World Hypothesis
 '''
 def recover_image(img, depths, B, beta_D, nmap):
     res = (img - B) * np.exp(beta_D * np.expand_dims(depths, axis=2))
@@ -206,7 +201,6 @@ def recover_image(img, depths, B, beta_D, nmap):
     res = scale(wbalance_no_red_10p(res))
     res[nmap == 0] = img[nmap == 0]
     return res
-
 
 '''
 Reconstruct the scene and globally white balance
@@ -218,10 +212,8 @@ def recover_image_S4(img, B, illum, nmap):
     res[nmap == 0] = img[nmap == 0]
     return scale(wbalance_no_red_gw(res))
 
-
 '''
-Constructs a neighborhood map from depths and 
-epsilon
+Constructs a neighborhood map from depths and epsilon
 '''
 def construct_neighborhood_map(depths, epsilon=0.05):
     eps = (np.max(depths) - np.min(depths)) * epsilon
@@ -289,7 +281,6 @@ def find_closest_label(nmap, start_x, start_y):
                 if not mask[x2, y2]:
                     q.append((x2, y2))
 
-
 '''
 Refines the neighborhood map to remove artifacts
 '''
@@ -309,7 +300,6 @@ def refine_neighborhood_map(nmap, min_size = 10, radius = 3):
     refined_nmap = closing(refined_nmap, square(radius))
     return refined_nmap, num_labels - 1
 
-
 def load_image_and_depth_map(img_fname, depths_fname, size_limit = 1024):
     depths = Image.open(depths_fname)
     img = Image.fromarray(rawpy.imread(img_fname).postprocess())
@@ -318,7 +308,7 @@ def load_image_and_depth_map(img_fname, depths_fname, size_limit = 1024):
     return np.float32(img) / 255.0, np.array(depths)
 
 '''
-White balance with 'grey world' hypothesis
+White balance with Gray World Hypothesis
 '''
 def wbalance_gw(img):
     dr = 1.0 / np.mean(img[:, :, 0])
@@ -333,7 +323,6 @@ def wbalance_gw(img):
     img[:, :, 1] *= dg
     img[:, :, 2] *= db
     return img
-
 
 '''
 White balance based on top 10% average values of each channel
@@ -367,7 +356,7 @@ def wbalance_no_red_10p(img):
     return img
 
 '''
-White balance with 'grey world' hypothesis
+White balance with Gray World Hypothesis
 '''
 def wbalance_no_red_gw(img):
     dg = 1.0 / np.mean(img[:, :, 1])
@@ -451,12 +440,12 @@ def run_pipeline(img, depths, args):
         plt.show()
 
     print('Estimating wideband attenuation...', flush=True)
-    beta_D_r, _ = estimate_wideband_attentuation(depths, illR)
-    refined_beta_D_r, coefsR = refine_wideband_attentuation(depths, illR, beta_D_r, radius_fraction=args.spread_data_fraction, l=args.l)
-    beta_D_g, _ = estimate_wideband_attentuation(depths, illG)
-    refined_beta_D_g, coefsG = refine_wideband_attentuation(depths, illG, beta_D_g, radius_fraction=args.spread_data_fraction, l=args.l)
-    beta_D_b, _ = estimate_wideband_attentuation(depths, illB)
-    refined_beta_D_b, coefsB = refine_wideband_attentuation(depths, illB, beta_D_b, radius_fraction=args.spread_data_fraction, l=args.l)
+    beta_D_r, _ = estimate_wideband_attenuation(depths, illR)
+    refined_beta_D_r, coefsR = refine_wideband_attenuation(depths, illR, beta_D_r, radius_fraction=args.spread_data_fraction, l=args.l)
+    beta_D_g, _ = estimate_wideband_attenuation(depths, illG)
+    refined_beta_D_g, coefsG = refine_wideband_attenuation(depths, illG, beta_D_g, radius_fraction=args.spread_data_fraction, l=args.l)
+    beta_D_b, _ = estimate_wideband_attenuation(depths, illB)
+    refined_beta_D_b, coefsB = refine_wideband_attenuation(depths, illB, beta_D_b, radius_fraction=args.spread_data_fraction, l=args.l)
 
     if args.output_graphs:
         print('Coefficients: \n{}\n{}\n{}'.format(coefsR, coefsG, coefsB), flush=True)
@@ -501,7 +490,6 @@ def run_pipeline(img, depths, args):
     B = np.stack([Br, Bg, Bb], axis=2)
     beta_D = np.stack([refined_beta_D_r, refined_beta_D_g, refined_beta_D_b], axis=2)
     recovered = recover_image(img, depths, B, beta_D, nmap)
-
 
     if args.output_graphs:
         beta_D = (beta_D - np.min(beta_D)) / (np.max(beta_D) - np.min(beta_D))
